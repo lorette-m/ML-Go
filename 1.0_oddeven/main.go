@@ -1,10 +1,10 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/rand"
-	"time"
 )
 
 type Perceptron struct {
@@ -12,13 +12,36 @@ type Perceptron struct {
 	bias    float64
 }
 
-func NewPerceptron(inputSize int) *Perceptron {
-	rand.Seed(time.Now().UnixNano())
+func cryptoRandFloat64() (float64, error) {
+	b := make([]byte, 8)
+	_, err := rand.Read(b)
+	if err != nil {
+		return 0, err
+	}
+
+	n := binary.LittleEndian.Uint64(b)
+
+	f := float64(n) / float64(math.MaxUint64)
+
+	return f - 0.5, nil
+}
+
+func NewPerceptron(inputSize int) (*Perceptron, error) {
+	//rand.Seed(time.Now().UnixNano()) //unreliable
+
 	weights := make([]float64, inputSize)
 	for i := range weights {
-		weights[i] = rand.Float64() - 0.5
+		f, err := cryptoRandFloat64()
+		if err != nil {
+			return nil, err
+		}
+		weights[i] = f
 	}
-	return &Perceptron{weights: weights, bias: rand.Float64() - 0.5}
+	bias, err := cryptoRandFloat64()
+	if err != nil {
+		return nil, err
+	}
+	return &Perceptron{weights: weights, bias: bias}, nil
 }
 
 func sigmoid(x float64) float64 {
@@ -62,7 +85,10 @@ func main() {
 	}
 	labels := []float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
 
-	p := NewPerceptron(4)
+	p, err := NewPerceptron(4)
+	if err != nil {
+		panic(err)
+	}
 	p.Train(inputs, labels, 1000, 0.1)
 
 	for i := 0; i < len(inputs); i++ {
